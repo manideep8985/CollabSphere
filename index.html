@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CollabSphere ✨</title>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Inter", sans-serif;
+}
+
+body {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: white;
+}
+
+/* Layout */
+.container {
+    display: flex;
+    height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 260px;
+    background: rgba(15,23,42,0.8);
+    backdrop-filter: blur(20px);
+    padding: 20px;
+    border-right: 1px solid rgba(255,255,255,0.1);
+}
+
+.logo {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+.room {
+    padding: 10px;
+    border-radius: 10px;
+    margin-top: 8px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.room:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+/* Chat */
+.chat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.header {
+    padding: 15px;
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    justify-content: space-between;
+}
+
+/* Messages */
+.messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+/* Message Bubble */
+.message {
+    max-width: 60%;
+    padding: 12px;
+    border-radius: 15px;
+    margin-bottom: 10px;
+}
+
+.own {
+    background: #3b82f6;
+    margin-left: auto;
+}
+
+.other {
+    background: rgba(255,255,255,0.1);
+}
+
+/* Input */
+.input-area {
+    display: flex;
+    padding: 15px;
+}
+
+.input-area input {
+    flex: 1;
+    padding: 12px;
+    border-radius: 12px;
+    border: none;
+    outline: none;
+}
+
+.input-area button {
+    margin-left: 10px;
+    padding: 12px 20px;
+    border-radius: 12px;
+    border: none;
+    background: #3b82f6;
+    color: white;
+    cursor: pointer;
+}
+
+/* Tasks */
+.tasks-panel {
+    width: 300px;
+    padding: 20px;
+    background: rgba(15,23,42,0.8);
+    backdrop-filter: blur(20px);
+    border-left: 1px solid rgba(255,255,255,0.1);
+}
+
+.task-column {
+    margin-bottom: 20px;
+}
+
+.task {
+    background: rgba(255,255,255,0.1);
+    padding: 10px;
+    margin-top: 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.task:hover {
+    transform: scale(1.03);
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <div class="logo">🚀 CollabSphere</div>
+
+    <div onclick="switchRoom(1)" class="room">Room 1</div>
+
+    <input id="roomInput" placeholder="New room..." style="margin-top:10px;width:100%;padding:8px;border-radius:8px;">
+    <button onclick="createRoom()" style="margin-top:5px;width:100%;">+ Add</button>
+</div>
+
+<!-- Chat -->
+<div class="chat">
+
+<div class="header">
+    <div>Room <span id="roomName">1</span></div>
+    <input id="usernameInput" placeholder="Your name">
+</div>
+
+<div id="messages" class="messages"></div>
+
+<div class="input-area">
+    <input id="msgInput" placeholder="Type message...">
+    <button onclick="sendMessage()">Send</button>
+</div>
+
+</div>
+
+<!-- Task Board -->
+<div class="tasks-panel">
+
+<h3>Task Board</h3>
+
+<input id="taskInput" placeholder="Add task..." style="width:100%;padding:8px;border-radius:8px;">
+<button onclick="addTask()" style="margin-top:5px;width:100%;">Add</button>
+
+<div class="task-column">
+    <h4>TODO</h4>
+    <div id="todo"></div>
+</div>
+
+<div class="task-column">
+    <h4>IN PROGRESS</h4>
+    <div id="progress"></div>
+</div>
+
+<div class="task-column">
+    <h4>DONE</h4>
+    <div id="done"></div>
+</div>
+
+</div>
+
+</div>
+
+<script>
+/* ================== GLOBAL ================== */
+let ws;
+let roomId = 1;
+let userId = Math.floor(Math.random() * 1000);
+let username = "User " + userId;
+
+const API = "http://127.0.0.1:8000";
+let tasks = [];
+
+/* ================== USERNAME ================== */
+document.getElementById("usernameInput").addEventListener("change", (e) => {
+    username = e.target.value || username;
+});
+
+/* ================== WEBSOCKET ================== */
+function connect() {
+    ws = new WebSocket(`ws://127.0.0.1:8000/ws/${roomId}/${userId}`);
+
+    ws.onopen = () => console.log("✅ Connected");
+
+    ws.onmessage = (event) => {
+        addMessage(event.data);
+    };
+
+    ws.onclose = () => console.log("❌ Disconnected");
+}
+
+/* ================== CHAT ================== */
+function addMessage(text) {
+    let box = document.getElementById("messages");
+
+    let msg = document.createElement("div");
+    msg.classList.add("message");
+
+    if (text.includes(username)) {
+        msg.classList.add("own");
+    } else {
+        msg.classList.add("other");
+    }
+
+    msg.innerHTML = `
+        <b>${text}</b>
+        <div class="time">${new Date().toLocaleTimeString()}</div>
+    `;
+
+    box.appendChild(msg);
+    box.scrollTop = box.scrollHeight;
+}
+
+/* SEND MESSAGE */
+function sendMessage() {
+    let input = document.getElementById("msgInput");
+
+    if (input.value && ws.readyState === 1) {
+        ws.send(`${username}: ${input.value}`);
+        input.value = "";
+    }
+}
+
+/* ENTER KEY SEND */
+document.getElementById("msgInput").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+        sendMessage();
+    }
+});
+
+/* ================== ROOMS ================== */
+function createRoom() {
+    let name = document.getElementById("roomInput").value;
+    if (!name) return;
+
+    let id = Math.floor(Math.random() * 1000);
+
+    let div = document.createElement("div");
+    div.className = "room";
+    div.innerText = name;
+
+    div.onclick = () => switchRoom(id);
+
+    document.querySelector(".sidebar").appendChild(div);
+
+    document.getElementById("roomInput").value = "";
+}
+
+/* SWITCH ROOMS */
+function switchRoom(id) {
+    roomId = id;
+
+    document.getElementById("roomName").innerText = id;
+    document.getElementById("messages").innerHTML = "";
+
+    if (ws) ws.close();
+    connect();
+
+    loadTasks(); // ✅ load tasks for that room
+}
+
+/* ================== TASK BACKEND ================== */
+
+/* LOAD TASKS */
+async function loadTasks() {
+    let res = await fetch(`${API}/tasks/${roomId}`);
+    let data = await res.json();
+
+    tasks = data;
+    renderTasks();
+}
+
+/* ADD TASK */
+async function addTask() {
+    let input = document.getElementById("taskInput");
+    let text = input.value;
+
+    if (!text) return;
+
+    await fetch(`${API}/tasks/add?text=${text}&room_id=${roomId}`, {
+        method: "POST"
+    });
+
+    input.value = "";
+    loadTasks();
+}
+
+/* MOVE TASK */
+async function moveTask(id) {
+    await fetch(`${API}/tasks/${id}`, {
+        method: "PUT"
+    });
+
+    loadTasks();
+}
+
+/* ================== RENDER TASKS ================== */
+function renderTasks() {
+    document.getElementById("todo").innerHTML = "";
+    document.getElementById("progress").innerHTML = "";
+    document.getElementById("done").innerHTML = "";
+
+    tasks.forEach(task => {
+        let div = document.createElement("div");
+        div.className = "task";
+        div.innerText = task.text;
+
+        div.onclick = () => moveTask(task.id);
+
+        if (task.status === "todo") {
+            document.getElementById("todo").appendChild(div);
+        } else if (task.status === "progress") {
+            document.getElementById("progress").appendChild(div);
+        } else {
+            document.getElementById("done").appendChild(div);
+        }
+    });
+}
+
+/* ================== INITIAL LOAD ================== */
+connect();
+loadTasks();
+
+</script>
+
+</body>
+</html>
