@@ -112,13 +112,6 @@ PUT    /tasks/{task_id}
 WebSocket
 ws://localhost:8000/ws/{room_id}/{user_id}
 
-
-📸 Screenshots
-💬 Chat Interface
-./screenshots/chat.png
-✅ Task Board
-./screenshots/tasks.png
-
 🚀 Future Enhancements
 
 🔄 Drag & Drop Task Management
